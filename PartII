@@ -1,0 +1,86 @@
+Function compare(a, b):
+    Return a - b
+
+Function serial_bucket_sort(data, N):
+    Sort data using a standard sorting function
+
+Main function (argc, argv):
+    Initialize MPI
+    Get the rank and total number of processes
+
+    N = 1000000
+    data, sorted_serial = NULL
+    serial_start, serial_end, parallel_start, parallel_end = 0
+    serial_time, parallel_time, speedup = 0
+
+    If rank == 0:
+        Allocate memory for data and sorted_serial
+        Generate random numbers and fill data array
+        Copy data to sorted_serial array
+
+        serial_start = Current time
+        Sort sorted_serial using serial_bucket_sort
+        serial_end = Current time
+        serial_time = serial_end - serial_start
+        Print "Serial sort completed"
+
+    Synchronize all processes
+    parallel_start = Current time
+
+    Broadcast N to all processes
+
+    chunk_size = N / size
+    Allocate local_data array
+    Scatter data from root to all processes
+
+    Sort local_data array
+
+    Allocate sendcounts, sdispls, recvcounts, rdispls arrays
+    Allocate bucket arrays for each process and initialize sendcounts to zero
+
+    For each element in local_data:
+        Determine target process
+        Place element into the corresponding bucket
+        Increment sendcounts
+
+    Calculate sdispls based on sendcounts
+
+    Allocate sendbuf array
+    Fill sendbuf with data from buckets
+
+    All-to-all exchange of sendcounts to get recvcounts
+
+    Calculate rdispls based on recvcounts
+
+    Allocate recvbuf array
+    All-to-all communication to exchange data between processes
+
+    Sort recvbuf array
+
+    Gather the size of data each process has sorted using recvcounts
+    If rank == 0:
+        Calculate displacements for gathering
+        Allocate sorted_parallel array
+
+    Gather sorted data from all processes to root using Gatherv
+
+    Synchronize all processes
+    parallel_end = Current time
+    parallel_time = parallel_end - parallel_start
+
+    If rank == 0:
+        Print "Parallel sort completed"
+        Compare sorted_serial with sorted_parallel
+        If both match:
+            Print "Verification: SUCCESS"
+        Else:
+            Print "Verification: FAILURE"
+
+        speedup = serial_time / parallel_time
+        Print speedup
+
+    Free local_data, sendcounts, recvcounts, sdispls, rdispls, recvbuf, sendbuf, and buckets
+    If rank == 0:
+        Free data, sorted_serial, and sorted_parallel
+
+    Finalize MPI
