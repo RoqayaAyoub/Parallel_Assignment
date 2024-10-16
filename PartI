@@ -1,0 +1,81 @@
+#include <mpi.h>
+#include <stdio.h>
+#include <math.h>
+#include <time.h>
+
+float square(float x) {
+    return x * x; 
+}
+
+float trapezoid_area_seq(float a, float b, int n) {
+    float area = 0.0f;
+    float delta = (b - a) / n;
+
+    for (int i = 0; i < n; i++) {
+        float x = a + i * delta;
+        area += square(x) + square(x + delta);
+    }
+
+    return area * delta / 2.0f;
+}
+
+float trapezoid_area_par(float a, float b, int n, int rank, int size) {
+    float delta = (b - a) / n; 
+    float segment = (b - a) / size;
+    float start = a + rank * segment;
+    float end = start + segment;
+    float local_area = 0.0f;
+
+    for (int i = 0; i < n / size; i++) {
+        float x = start + i * delta;
+        local_area += square(x) + square(x + delta);
+    }
+    return local_area * delta / 2.0f;
+}
+
+int main(int argc, char** argv) {
+    int rank, size;
+    float a = 0.0f, b = 1.0f; 
+    int n;
+    float total_area;
+    double seq_time;
+
+    MPI_Init(&argc, &argv); 
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    MPI_Comm_size(MPI_COMM_WORLD, &size); 
+
+    if (rank == 0) {
+        printf("Enter the number of intervals: ");
+        scanf("%d", &n);
+
+        clock_t start_time = clock();
+        float seq_area = trapezoid_area_seq(a, b, n);
+        clock_t end_time = clock();
+        seq_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
+        printf("Total area under the curve (sequential): %f\n", seq_area);
+        printf("Execution time (sequential): %f seconds\n", seq_time);
+    }
+
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    double start_time = MPI_Wtime();
+    
+    float local_area = trapezoid_area_par(a, b, n, rank, size);
+    
+    MPI_Reduce(&local_area, &total_area, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    double end_time = MPI_Wtime();
+    
+    if (rank == 0) {
+        double par_time = end_time - start_time;
+        printf("Total area under the curve: %f\n", total_area);
+        printf("Execution time: %f seconds\n", par_time);
+        
+        double speedup = seq_time / par_time;
+        printf("Speedup factor= %f\n", speedup);
+    }
+
+    MPI_Finalize(); 
+    return 0;
+}
